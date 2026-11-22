@@ -27,7 +27,7 @@ A small, nostalgic 2008-style social wall built as a full-stack job-application 
 4. Open **Storage** and verify a public bucket named `wall-photos` exists. Its file limit is 5 MB and its allowed types are JPG, PNG, WEBP, and GIF. Check the bucket's public setting.
 5. In **Project Settings → API** (sometimes shown as **Data API**), copy the **Project URL** and the **anon / publishable public key**. Do not use a `service_role` or secret key in this browser app.
 
-The schema grants only anonymous `SELECT` and `INSERT` access for posts, plus public photo reads and anonymous inserts scoped to `wall-photos`. There are intentionally no post update/delete policies.
+The schema grants only anonymous `SELECT` and `INSERT` access for posts, plus public photo reads and anonymous inserts scoped to `wall-photos`. There are intentionally no post update/delete policies. If you already ran the challenge's shorter SQL (`body` and `user_id` columns), this schema migrates `body` into `message` and keeps the existing rows; rerun the full file rather than creating another table.
 
 ## Environment variables
 
@@ -73,7 +73,8 @@ Replace [`public/profile-placeholder.svg`](./public/profile-placeholder.svg) wit
 
 ## Troubleshooting
 
-- **Posts are not saving / `permission denied for table posts`:** Confirm both environment variables are set, then run `GRANT SELECT, INSERT ON public.posts TO anon;` in the Supabase SQL Editor. Also verify the `anon` SELECT and INSERT policies on `public.posts` are enabled by rerunning [`supabase/schema.sql`](./supabase/schema.sql). Browser requests must use only the anon/public key.
+- **Posts are not saving / `permission denied for table posts`:** Confirm both environment variables are set, then rerun [`supabase/schema.sql`](./supabase/schema.sql) in the Supabase SQL Editor to configure the table grants and `anon` SELECT/INSERT policies. Browser requests must use only the anon/public key.
+- **`column posts.message does not exist`:** The short challenge SQL creates a `body` column, but this app uses `message` and `author_name`. Rerun the full `supabase/schema.sql`; it adds the required columns and copies existing `body` values into `message`.
 - **Realtime is not updating:** Confirm `public.posts` is included in `supabase_realtime` under Database Publications/Replication. Check the browser console and project Realtime status; reload the page after enabling it.
 - **Photo upload fails:** Verify the bucket is named exactly `wall-photos`, is public, and has the anonymous insert policy on `storage.objects` scoped to `bucket_id = 'wall-photos'`. Files must be JPG/PNG/WEBP/GIF and no larger than 5 MB.
 - **Vercel reports missing env vars:** Set both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` under Project Settings → Environment Variables, enable them for Production, then redeploy.
