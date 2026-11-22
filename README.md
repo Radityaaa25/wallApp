@@ -73,7 +73,7 @@ Replace [`public/profile-placeholder.svg`](./public/profile-placeholder.svg) wit
 
 ## Troubleshooting
 
-- **Posts are not saving:** Confirm both environment variables are set, then rerun the posts section of `schema.sql` and check that the `anon` insert policy is enabled on `public.posts`. Browser requests must use only the anon/public key.
+- **Posts are not saving / `permission denied for table posts`:** Confirm both environment variables are set, then run `GRANT SELECT, INSERT ON public.posts TO anon;` in the Supabase SQL Editor. Also verify the `anon` SELECT and INSERT policies on `public.posts` are enabled by rerunning [`supabase/schema.sql`](./supabase/schema.sql). Browser requests must use only the anon/public key.
 - **Realtime is not updating:** Confirm `public.posts` is included in `supabase_realtime` under Database Publications/Replication. Check the browser console and project Realtime status; reload the page after enabling it.
 - **Photo upload fails:** Verify the bucket is named exactly `wall-photos`, is public, and has the anonymous insert policy on `storage.objects` scoped to `bucket_id = 'wall-photos'`. Files must be JPG/PNG/WEBP/GIF and no larger than 5 MB.
 - **Vercel reports missing env vars:** Set both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` under Project Settings → Environment Variables, enable them for Production, then redeploy.

@@ -28,6 +28,8 @@ create policy "Anyone can insert posts"
     and char_length(author_name) between 1 and 60
   );
 
+grant select, insert on table public.posts to anon;
+
 do $$
 begin
   if not exists (

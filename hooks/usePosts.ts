@@ -8,6 +8,40 @@ import type { Post } from "@/lib/posts";
 const PHOTO_BUCKET = "wall-photos";
 const FEED_LIMIT = 50;
 
+type SupabaseErrorLike = {
+  code?: string;
+  message?: string;
+};
+
+function getDatabaseErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.startsWith("Supabase is not configured.")) {
+    return error.message;
+  }
+  if (typeof error !== "object" || error === null) return fallback;
+
+  const databaseError: SupabaseErrorLike = {
+    code: "code" in error && typeof error.code === "string" ? error.code : undefined,
+    message: "message" in error && typeof error.message === "string" ? error.message : undefined
+  };
+  if (databaseError.code === "42501") {
+    return "Supabase denied access to posts. In the SQL Editor, run: GRANT SELECT, INSERT ON public.posts TO anon;";
+  }
+  if (databaseError.code === "42P01" || databaseError.code === "PGRST205") {
+    return "The public.posts table was not found. Run supabase/schema.sql in the Supabase SQL Editor.";
+  }
+  if (databaseError.code === "42703" || databaseError.code === "PGRST204") {
+    return "The posts table is missing a required column. Update it by running supabase/schema.sql in the Supabase SQL Editor.";
+  }
+  if (databaseError.code === "23514") {
+    return "The post was rejected by a database constraint. Check that the message is 1–280 characters and rerun supabase/schema.sql.";
+  }
+  if (databaseError.message) {
+    const code = databaseError.code ? ` (${databaseError.code})` : "";
+    return `${fallback}${code}: ${databaseError.message}`;
+  }
+  return fallback;
+}
+
 function mergePosts(...groups: Post[][]): Post[] {
   const postsById = new Map<string, Post>();
   for (const group of groups) {
@@ -19,10 +53,10 @@ function mergePosts(...groups: Post[][]): Post[] {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.startsWith("Supabase is not configured.")) {
-    return error.message;
-  }
-  return "Could not load posts. Please refresh the page and try again.";
+  return getDatabaseErrorMessage(
+    error,
+    "Could not load posts. Please check the Supabase table permissions and try again."
+  );
 }
 
 export function usePosts() {
@@ -72,6 +106,7 @@ export function usePosts() {
           setError(null);
         }
       } catch (loadError) {
+        console.error("Failed to load posts from Supabase:", loadError);
         if (active) setError(getErrorMessage(loadError));
       } finally {
         if (active) setLoading(false);
@@ -97,7 +132,10 @@ export function usePosts() {
           .from(PHOTO_BUCKET)
           .upload(filePath, image, { contentType: image.type, upsert: false });
         if (uploadError) {
-          throw new Error("Failed to upload photo. Please try again.");
+          console.error("Failed to upload wall photo:", uploadError);
+          throw new Error(
+            getDatabaseErrorMessage(uploadError, "Failed to upload photo. Please try again.")
+          );
         }
         imageUrl = client.storage.from(PHOTO_BUCKET).getPublicUrl(filePath).data.publicUrl;
       }
@@ -110,7 +148,10 @@ export function usePosts() {
         .single();
 
       if (insertError) {
-        throw new Error("Failed to save your post. Please try again.");
+        console.error("Failed to save wall post:", insertError);
+        throw new Error(
+          getDatabaseErrorMessage(insertError, "Failed to save your post. Please try again.")
+        );
       }
 
       setPosts((current) => {
